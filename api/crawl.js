@@ -5,8 +5,12 @@
 const Anthropic = require("@anthropic-ai/sdk");
 const { createClient } = require("@supabase/supabase-js");
 
+const WebSocket = require('ws');
 const supabase = (process.env.SUPABASE_URL && process.env.SUPABASE_SECRET_KEY)
-  ? createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SECRET_KEY)
+  ? createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SECRET_KEY, {
+      global: { headers: {} },
+      realtime: { transport: WebSocket },
+    })
   : null;
 
 function makeSharedId() {

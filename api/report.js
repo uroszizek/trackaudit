@@ -1,10 +1,12 @@
 // api/report.js — Vrne shranjeno poročilo po shared_id
 // GET /api/report?id=abc12345
 const { createClient } = require("@supabase/supabase-js");
+const WebSocket = require('ws');
 
 const supabase = createClient(
   process.env.SUPABASE_URL,
-  process.env.SUPABASE_SECRET_KEY
+  process.env.SUPABASE_SECRET_KEY,
+  { realtime: { transport: WebSocket } }
 );
 
 module.exports = async function handler(req, res) {
