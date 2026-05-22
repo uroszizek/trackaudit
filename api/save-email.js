@@ -1,6 +1,5 @@
 // api/save-email.js — Shrani email, poveži z auditom, pošlji report
 const { createClient } = require("@supabase/supabase-js");
-const WebSocket = require('ws');
 
 const supabase = createClient(
   process.env.SUPABASE_URL,
