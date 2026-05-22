@@ -1,15 +1,4 @@
 {
-  "functions": {
-    "api/crawl.js": {
-      "maxDuration": 300
-    },
-    "api/save-email.js": {
-      "maxDuration": 30
-    },
-    "api/report.js": {
-      "maxDuration": 10
-    }
-  },
   "rewrites": [
     { "source": "/report/:id", "destination": "/index.html" },
     { "source": "/((?!api/).*)", "destination": "/index.html" }
