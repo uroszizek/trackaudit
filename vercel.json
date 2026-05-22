@@ -1,8 +1,7 @@
 {
   "functions": {
     "api/crawl.js": {
-      "maxDuration": 300,
-      "memory": 3009
+      "maxDuration": 300
     },
     "api/save-email.js": {
       "maxDuration": 30
