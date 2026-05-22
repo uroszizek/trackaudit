@@ -175,10 +175,17 @@ async function getPlaywright() {
   if (process.env.VERCEL || process.env.AWS_LAMBDA_FUNCTION_NAME) {
     const chromium = require("@sparticuz/chromium");
     const pw = require("playwright-core");
+    // @sparticuz/chromium v131 — specifični path in args za Vercel
+    const execPath = await chromium.executablePath();
     return { pw, launchOpts: {
-      args: chromium.args,
-      executablePath: await chromium.executablePath(),
-      headless: true,
+      args: [
+        ...chromium.args,
+        "--disable-dev-shm-usage",
+        "--no-sandbox",
+        "--single-process",
+      ],
+      executablePath: execPath,
+      headless: chromium.headless,
     }};
   }
   const pw = require("playwright");
