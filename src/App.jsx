@@ -501,11 +501,23 @@ export default function App() {
     setLoading(true); setResult(null); setRawResult(null); setError(""); setEmailDone(false);
     const siteUrl = url.startsWith("http") ? url.trim() : "https://" + url.trim();
     try {
-      const res  = await fetch("/api/crawl", { method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({url:siteUrl}) });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.detail || data.error || "Crawl failed");
+      const res = await fetch("/api/crawl", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ url: siteUrl }),
+      });
+      // Varno parsiranje — Vercel lahko vrne HTML pri 500 napakah
+      const contentType = res.headers.get("content-type") || "";
+      let data;
+      if (contentType.includes("application/json")) {
+        data = await res.json();
+      } else {
+        const text = await res.text();
+        throw new Error(`Strežnik je vrnil napako: ${text.substring(0, 120)}`);
+      }
+      if (!res.ok) throw new Error(data.detail || data.error || "Crawl ni uspel");
       setRawResult(data);
-    } catch(e) { setError(`Error: ${e.message}`); }
+    } catch(e) { setError(`${e.message}`); }
     setLoading(false);
   };
 
