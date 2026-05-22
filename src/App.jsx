@@ -45,6 +45,7 @@ const T = {
       cmpFail: "No Cookie Management Platform detected. A CMP is required to collect consent from EU visitors.",
       enhancedFail: "Enhanced Conversions not detected. This reduces conversion tracking accuracy in Google Ads.",
       metaFail: "Meta Conversions API not detected. Client-side Meta Pixel data may be blocked by browsers.",
+      performanceDetail: "Measures how many tracking scripts add significant load time to your page.",
     },
     crawlMeta: ["GTM Container","GA4 ID","CMP","Consent Mode v2","dataLayer","Network requests","Scripts loaded"],
     crawlValues: { yes: "✓ In code", no: "✗ Not found", present: "✓ Present", missing: "✗ Missing" },
@@ -102,7 +103,8 @@ const T = {
       cmpOk: (name) => `Zaznan sistem za upravljanje soglasij (CMP): ${name}`,
       cmpFail: "Ni zaznanega CMP. Certificiran baner za piškotke je obvezen za skladnost z GDPR.",
       enhancedFail: "Izboljšane konverzije niso zaznane. Ta Google Ads funkcija izboljša merjenje konverzij s hashiranimi podatki.",
-      metaFail: "Ni zaznanih znakov Meta Conversions API. Strežniški Meta eventi izboljšajo kakovost ujemanja.",
+      metaFail: "Ni zaznanih znakov Meta Conversions API. Strežniški Meta dogodki izboljšajo kakovost ujemanja.",
+      performanceDetail: "Meri, koliko tracking skriptov bistveno upočasni nalaganje vaše strani.",
     },
     crawlMeta: ["GTM vsebnik","GA4 ID","CMP","Consent Mode v2","dataLayer","Omrežne zahteve","Naloženi skripti"],
     crawlValues: { yes: "✓ V kodi", no: "✗ Ni najden", present: "✓ Prisoten", missing: "✗ Manjka" },
@@ -495,6 +497,29 @@ export default function App() {
   const [emailDone,  setEmailDone]  = useState(false);
   const [lang,       setLang]       = useState("sl");
   const t = T[lang];
+  const scoreLabel = s => t.scoreLabels[s >= 70 ? 0 : s >= 40 ? 1 : 2];
+
+  const [routeId] = useState(() => {
+    const m = window.location.pathname.match(/^\/report\/([a-z0-9]+)$/i);
+    return m ? m[1] : null;
+  });
+
+  useEffect(() => {
+    if (!routeId) return;
+    setLoading(true);
+    fetch(`/api/report?id=${routeId}`)
+      .then(r => r.ok ? r.json() : r.json().then(e => Promise.reject(new Error(e.error || "Napaka"))))
+      .then(data => {
+        if (data.report_data) {
+          setResult(data.report_data);
+          setEmailDone(true);
+        } else {
+          setError("Poročilo ni najdeno.");
+        }
+      })
+      .catch(e => setError(e.message))
+      .finally(() => setLoading(false));
+  }, [routeId]);
 
   const analyze = async () => {
     if (!url.trim()) return;
@@ -568,56 +593,50 @@ export default function App() {
         maxPts: 20,
         status: hasConsentCode ? (consentAllDenied ? "ok" : "warn") : "fail",
         detail: hasConsentCode
-          ? (consentAllDenied ? "Correctly implemented with all consent codes set to denied by default." : "Consent Mode v2 found in code but not all parameters are set to denied. Check ad_user_data and ad_personalization.")
-          : "Missing or incomplete consent mode implementation. All 6 parameters should default to 'denied' for EU visitors.",
+          ? (consentAllDenied ? d.consentOk : d.consentWarn)
+          : d.consentFail,
       },
       {
         label: ck.serverSide,
         pts: hasServerSide ? 30 : 0,
         maxPts: 30,
         status: hasServerSide ? "ok" : "fail",
-        detail: hasServerSide
-          ? "Server-side GTM detected. Data is routed through your own server, improving accuracy and bypassing ad blockers."
-          : d.serverFail,
+        detail: hasServerSide ? d.serverOk : d.serverFail,
       },
       {
         label: ck.performance,
         pts: Math.round((trackingScore/100)*20),
         maxPts: 20,
         status: trackingScore>=70?"ok":trackingScore>=40?"warn":"fail",
-        detail: "Measures how many tracking scripts add significant load time to your page.",
+        detail: d.performanceDetail,
       },
       {
         label: ck.pixel,
         pts: preConsentTrack.length===0 ? 10 : 0,
         maxPts: 10,
         status: preConsentTrack.length===0 ? "ok" : "fail",
-        detail: preConsentTrack.length===0
-          ? "No marketing pixels firing before user consent."
-          : d.pixelFail(preConsentTrack.length, preConsentTrack.map(c=>c.name).join(", ")),
+        detail: preConsentTrack.length===0 ? d.pixelOk : d.pixelFail(preConsentTrack.length, preConsentTrack.map(c=>c.name).join(", ")),
       },
       {
         label: ck.cmp,
         pts: hasCMP ? 10 : 0,
         maxPts: 10,
         status: hasCMP ? "ok" : "fail",
-        detail: hasCMP
-          ? d.cmpOk(meta.cmp_detected)
-          : "No recognized CMP detected. A certified cookie banner is required for GDPR compliance.",
+        detail: hasCMP ? d.cmpOk(meta.cmp_detected) : d.cmpFail,
       },
       {
         label: ck.enhanced,
         pts: 0,
         maxPts: 5,
         status: "fail",
-        detail: "Enhanced Conversions not detected. This Google Ads feature improves conversion measurement by sending hashed first-party data.",
+        detail: d.enhancedFail,
       },
       {
         label: ck.metaCapi,
         pts: 0,
         maxPts: 5,
         status: "fail",
-        detail: "No Meta Conversions API indicators found. Server-side Meta events improve match quality and bypass browser restrictions.",
+        detail: d.metaFail,
       },
     ];
   };
@@ -728,26 +747,26 @@ export default function App() {
           {/* Two-col: Trackers + Consent */}
           <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:20, marginBottom:20 }}>
             <Card style={{ marginBottom:0 }}>
-              <CardHeader emoji="🔍" title="Detected Trackers" count={trackers.filter(t=>t.status==="detected").length} />
+              <CardHeader emoji="🔍" title={t.trackers} count={trackers.filter(tk=>tk.status==="detected").length} />
               <TrackerTable trackers={trackers} lang={lang} />
             </Card>
 
             <Card style={{ marginBottom:0 }}>
-              <CardHeader emoji="🛡" title="Consent Mode v2" />
+              <CardHeader emoji="🛡" title={t.consentMode} />
               <ConsentModeTable values={consentValues} meta={result.crawl_meta} lang={lang} />
             </Card>
           </div>
 
           {/* Pre-consent cookies */}
           <Card>
-            <CardHeader emoji="🍪" title="Pre-consent cookies" count={cookies.length}
+            <CardHeader emoji="🍪" title={t.preConsent} count={cookies.length}
               right={cookies.some(c=>isTracking(c.name)) && <span style={{fontSize:11,padding:"3px 10px",borderRadius:99,background:"#fef2f2",color:"#dc2626",fontWeight:600}}>⚠ Tracking before consent</span>} />
             <CookieTable cookies={cookies} lang={lang} />
           </Card>
 
           {/* Live crawl meta */}
           <Card>
-            <CardHeader emoji="🔬" title="Live Crawl Data" />
+            <CardHeader emoji="🔬" title={t.liveData} />
             <div style={{ padding:"18px 20px", display:"flex", flexWrap:"wrap", gap:20 }}>
               {[
                 [t.crawlMeta[0],result.crawl_meta?.gtm_ids?.join(", ")||"—"],
@@ -768,18 +787,16 @@ export default function App() {
 
           {/* Recommendations */}
           <Card>
-            <CardHeader emoji="💡" title="Recommended actions" count={result.recommendations?.length} />
+            <CardHeader emoji="💡" title={t.recommendations} count={result.recommendations?.length} />
             {(result.recommendations||[]).map((r,i)=><RecCard key={i} item={r} index={i} lang={lang}/>)}
           </Card>
 
           {/* CTA */}
           <div style={{ background:"linear-gradient(135deg,#f97316,#ea580c)", borderRadius:16, padding:"36px 32px", textAlign:"center", color:"#fff" }}>
-            <h3 style={{ fontSize:22, fontWeight:700, marginBottom:10 }}>Ali želite odpraviti težave?</h3>
-            <p style={{ fontSize:15, opacity:0.9, marginBottom:24, lineHeight:1.6 }}>
-              e-laborat pripravi implementacijski plan in poskrbi za pravilno postavitev trackinga.
-            </p>
+            <h3 style={{ fontSize:22, fontWeight:700, marginBottom:10 }}>{t.ctaTitle}</h3>
+            <p style={{ fontSize:15, opacity:0.9, marginBottom:24, lineHeight:1.6 }}>{t.ctaSub}</p>
             <a href="mailto:uros@e-laborat.si" style={{ display:"inline-block", padding:"14px 32px", background:"#fff", color:"#f97316", borderRadius:12, fontWeight:700, fontSize:15, textDecoration:"none" }}>
-              Kontaktirajte nas →
+              {t.ctaBtn}
             </a>
           </div>
 

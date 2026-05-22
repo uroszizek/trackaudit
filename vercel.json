@@ -1,4 +1,7 @@
 {
+  "functions": {
+    "api/crawl.js": { "maxDuration": 60 }
+  },
   "rewrites": [
     { "source": "/report/:id", "destination": "/index.html" },
     { "source": "/((?!api/).*)", "destination": "/index.html" }

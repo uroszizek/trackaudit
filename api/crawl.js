@@ -5,10 +5,9 @@
 const Anthropic = require("@anthropic-ai/sdk");
 const { createClient } = require("@supabase/supabase-js");
 
-const supabase = (process.env.SUPABASE_URL && process.env.SUPABASE_SECRET_KEY)
-  ? createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SECRET_KEY, {
+const supabase = (process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY)
+  ? createClient(process.env.NEXT_PUBLIC_SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY, {
       global: { headers: {} },
-      realtime: { transport: WebSocket },
     })
   : null;
 
@@ -704,18 +703,20 @@ module.exports = async function handler(req, res) {
         tracking_cookies_before_consent: crawlData.tracking_cookies_before_consent,
         consent_simulation:         sim,
       },
-      trackers: (crawlData.trackers||[]).map(name => ({ name, status: "detected" })),
+      trackers: TRACKERS.map(tr => ({
+        name: tr.name,
+        status: (crawlData.trackers||[]).includes(tr.name) ? "detected" : "missing",
+      })),
     };
 
-    // Shrani v Supabase
+    // Shrani v Supabase (await — save-email ga potrebuje takoj zatem)
     if (supabase) {
-      supabase.from("audit_results").insert({
+      const { error: dbErr } = await supabase.from("audit_results").insert({
         url: siteUrl, score: crawlData._score,
         report_data: result, shared_id,
-      }).then(({ error }) => {
-        if (error) console.error("[Supabase]", error.message);
-        else console.log("[Supabase] Shranjeno:", shared_id);
       });
+      if (dbErr) console.error("[Supabase]", dbErr.message);
+      else console.log("[Supabase] Shranjeno:", shared_id);
     }
 
     console.log(`[TrackAudit v3] Končano. Score: ${crawlData._score} | ID: ${shared_id}`);

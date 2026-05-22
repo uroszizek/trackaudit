@@ -2,9 +2,8 @@
 const { createClient } = require("@supabase/supabase-js");
 
 const supabase = createClient(
-  process.env.SUPABASE_URL,
-  process.env.SUPABASE_SECRET_KEY,
-  { realtime: { transport: WebSocket } }
+  process.env.NEXT_PUBLIC_SUPABASE_URL,
+  process.env.SUPABASE_SERVICE_ROLE_KEY
 );
 
 module.exports = async function handler(req, res) {
@@ -21,7 +20,7 @@ module.exports = async function handler(req, res) {
     // 1. Posodobi audit_results z emailom
     const { data: audit, error: auditErr } = await supabase
       .from("audit_results")
-      .select("url, score, report_html")
+      .select("url, score")
       .eq("shared_id", shared_id)
       .single();
 
