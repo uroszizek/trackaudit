@@ -185,7 +185,7 @@ async function getPlaywright() {
         "--single-process",
       ],
       executablePath: execPath,
-      headless: chromium.headless,
+      headless: true,
     }};
   }
   const pw = require("playwright");
