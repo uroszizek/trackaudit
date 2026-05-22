@@ -188,7 +188,7 @@ async function getPlaywright() {
       headless: true,
     }};
   }
-  const pw = require("playwright");
+  const pw = require("playwright-core");
   return { pw, launchOpts: {
     headless: true,
     args: ["--no-sandbox","--disable-setuid-sandbox","--disable-blink-features=AutomationControlled"],
